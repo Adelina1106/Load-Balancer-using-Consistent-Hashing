@@ -1,0 +1,63 @@
+
+Rizea Adelina-Maria
+
+    In structura load_balancer-ului am retinut: hashringul - sub forma unei CDLL,
+un array servers in care sunt stocate serverele si un intreg servers_number ce
+retine numarul acestora.
+    De asemenea, am alcatuit o alta structura info_h in care stochez informatii
+despre fiecare replica de pe hashring, si anume: - tag, reprezentand eticheta
+                            replicii (hash-ul ei)
+                                                 - id_server (id-ul serverului
+                            din care face parte replica)
+                                                 - keys, fiind un array de stringuri
+                            (in acesta stochez cheile tuturor obiectelor ce sunt
+                            salvate de replica respectiva intr-un server)
+                                                 - keys_size, numarul de obiecte
+                            retinute de replica
+
+    In structura unui server am retinut o alta structura de tip hashtable,
+folosindu-ma astfel in functiile din server.c doar de functiile uzuale 
+pentru un hashtable: ht_put, ht_remove_entry, ht_get si ht_free.
+
+    In load_balancer.c:
+
+- functia init_load_balancer: se initializeaza structura de load_balancer
+    si se aloca memoria necesara pentru componentele ei.
+
+- functia loader_store: - daca produsul nu exista in sistem: se cauta in hashring
+    prima eticheta mai mare decat hash-ul lui key si, daca exista, stocam pe serverul
+    corespunzator perechea key-value data si adaugam key in array-ul keys al replicii;
+    daca nu exista o eticheta mai mare decat hash_key, stocam perechea key-value in
+    serverul primei replici din hashring
+                        - daca produsul este deja in sistem: cautam pe ce replica
+    este stocat si returnam serverul corespunzator
+
+- functia loader_retrieve: se cauta key in fiecare server de pe hashring si se
+    returneaza valoarea acesteia si serverul pe care se afla
+
+- functia sort_hashing: - are rolul de a sorta hashringul dupa etichetele replicilor;
+    sortarea se realizeaza dupa fiecare adaugare a unui server nou;
+                        - cand se gaseste o eticheta cu valoarea mai mare inainte
+    uneia cu valoarea mai mica, se interschimba cele doua replici, cu tot cu
+    informatiile acestora
+
+- functia loader_add_server: - se initializeaza noul server, creste servers_number
+    cu o valoare si se calculeaza conform formulei din enunt etichetele si hash-urile
+    celor 3 replici ale serverului
+                             - se adauga in hashring cele 3 replici cu informatiile specifice
+                             - se sorteaza hashring-ul dupa etichete
+                             - se realizeaza rebalansarea obiectelor existente in
+    sistem: daca replica serverului urmator(vecin) celui nou retine obiecte, pot avea
+    loc 2 cazuri; primul caz - daca replica vecina este pe prima pozitie in hashring si
+    se indeplineste conditia ca eticheta curenta sa fie mai mare decat hash-ul obiectului
+    de pe replica vecina si acesta sa fie mai mare decat eticheta vecina, se redistribuie
+    obiectul pe serverul vecin; al doilea caz (replica vecina nu e pe prima pozitie in
+    hashring) - daca eticheta curenta este mai mare decat hash-ul obiectului de pe vecin
+    si mai mica decat eticheta vecina, se redistribuie obiectul pe serverul vecin
+
+- functia loader_remove_server: pentru fiecare replica ce apartine serverului dat
+    ca parametru se verifica daca array-ul keys contine obiecte; in acest caz, ele
+    vor fi redistribuite pe serverul urmator si scoase din serverul curent; se elimina
+    din hashring replicile serverului
+
+- functia free_load_balancer: se elibereaza memoria alocata
